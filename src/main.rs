@@ -47,7 +47,7 @@ impl ops::Neg for &Point {
 }
 
 fn dot_product(a: &Point, b: &Point) -> f32 {
-    a.x.mul_add(b.x, a.y * b.y)
+    a.x * b.x + a.y * b.y
 }
 
 fn triple_cross_product(a: &Point, b: &Point, c: &Point) -> Point {
@@ -81,58 +81,6 @@ fn support(a: &[Point], b: &[Point], vector: &Point) -> Point {
     furthest_a - furthest_b
 }
 
-fn do_simplex(simplex: &Vec<Point>) -> (Vec<Point>, Point, bool) {
-    if simplex.len() == 2 {
-        let a = &simplex[1];
-        let b = &simplex[0];
-        let ab = b - a;
-        let ao = -a;
-        if 0.0 < dot_product(&ab, &ao) {
-            return (
-                vec![a.clone(), b.clone()],
-                triple_cross_product(&ab, &ao, &ab),
-                false,
-            );
-        } else {
-            return (
-                vec![a.clone()],
-                ao.clone(),
-                false,
-            );
-        }
-    } else {
-        let a = &simplex[2];
-        let b = &simplex[1];
-        let c = &simplex[0];
-        let ab = b - a;
-        let ac = c - a;
-        let ao = -a;
-        let d = triple_cross_product(&ab, &ac, &ac);
-        if 0.0 < dot_product(&d, &ao) {
-            return (
-                vec![c.clone(), a.clone()],
-                d,
-                false,
-            );
-        } else {
-            let d = triple_cross_product(&ac, &ab, &ab);
-            if 0.0 < dot_product(&d, &ao) {
-                return (
-                    vec![b.clone(), a.clone()],
-                    d,
-                    false,
-                );
-            } else {
-                return (
-                    vec![],
-                    Point { x: 0.0, y: 0.0 },
-                    true, // no matter what other elements contains
-                );
-            }
-        }
-    }
-}
-
 //    if AB
 //        [A,B] ABxAOxAB
 //    else
@@ -151,10 +99,53 @@ fn gjk2d(a: &[Point], b: &[Point]) -> bool {
         let support_point = support(a, b, &vector);
         if dot_product(&support_point, &vector) < 0.0 { return false; }
         simplex.push(support_point.clone());
-        let (new_simplex, new_vector, do_simplex_result) = do_simplex(&simplex);
-        simplex = new_simplex;
-        vector = new_vector;
-        if do_simplex_result { return true; }
+        if simplex.len() == 2 {
+            let a = &simplex[1];
+            let b = &simplex[0];
+            let ab = b - a;
+            let ao = -a;
+            if 0.0 < dot_product(&ab, &ao) {
+                vector = triple_cross_product(&ab, &ao, &ab);
+                let a = a.clone();
+                let b = b.clone();
+                simplex.clear();
+                simplex.push(a);
+                simplex.push(b);
+            } else {
+                vector = ao.clone();
+                let a = a.clone();
+                simplex.clear();
+                simplex.push(a);
+            }
+        } else {
+            let a = &simplex[2];
+            let b = &simplex[1];
+            let c = &simplex[0];
+            let ab = b - a;
+            let ac = c - a;
+            let ao = -a;
+            let d = triple_cross_product(&ab, &ac, &ac);
+            if 0.0 < dot_product(&d, &ao) {
+                vector = d.clone();
+                let aa = c.clone();
+                let bb = a.clone();
+                simplex.clear();
+                simplex.push(aa);
+                simplex.push(bb);
+            } else {
+                let d = triple_cross_product(&ac, &ab, &ab);
+                if 0.0 < dot_product(&d, &ao) {
+                    vector = d.clone();
+                    let aa = b.clone();
+                    let bb = a.clone();
+                    simplex.clear();
+                    simplex.push(aa);
+                    simplex.push(bb);
+                } else {
+                    return true;
+                }
+            }
+        }
     }
 }
 
